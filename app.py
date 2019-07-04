@@ -2,6 +2,7 @@ from flask import Flask, redirect
 from flask import jsonify
 from flask import request
 from flask_pymongo import PyMongo
+from bson.objectid import ObjectId
 import datetime
 import json
 
@@ -30,9 +31,9 @@ def get_all_stars():
 def get_all_restaurants():
     restaurant = mongo.db.restaurants
     output = []
-    for s in restaurant.find():
-        s['_id'] = str(s['_id'])
-        output.append(s)
+    for r in restaurant.find():
+        r['_id'] = str(r['_id'])
+        output.append(r)
     return jsonify(output)
 
 
@@ -49,12 +50,14 @@ def get_one_star(name):
 
 @app.route('/restaurants/<string:id>', methods=['GET'])
 def get_restaurant(id):
-    r = mongo.db.restaurants.find_one({'id': id})
+    restaurant = mongo.db.restaurants
+    r = restaurant.find_one({'_id': ObjectId(id)})
     if r:
-        output = {'id': r['id'], 'distance': r['distance']}
+        r['_id'] = str(r['_id'])
+        output = r
     else:
         output = "No such name"
-    return jsonify({'result': output})
+    return jsonify(output)
 
 
 @app.route('/restaurants', methods=['POST'])
