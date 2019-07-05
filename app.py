@@ -13,19 +13,27 @@ app.config['MONGO_URI'] = 'mongodb://localhost:27017/restdb'
 
 mongo = PyMongo(app)
 
-mongo.db.stars.drop()
-mongo.db.comments.drop()
-mongo.db.restaurants.drop()
-
 
 @app.route('/restaurants', methods=['GET'])
 def get_all_restaurants():
     restaurant = mongo.db.restaurants
+    city = request.args.get('city')
+    area = request.args.get('area')
     output = []
-    for r in restaurant.find():
+    if city:
+        rests = restaurant.find({"address.city": city})
+    if city and area:
+        rests = restaurant.find({"address.city": city, "address.area": area})
+    for r in rests:
         r['_id'] = str(r['_id'])
         output.append(r)
     return jsonify(output)
+
+
+@app.after_request
+def add_header(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 
 @app.route('/restaurants/<string:id>', methods=['GET'])
