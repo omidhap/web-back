@@ -36,11 +36,24 @@ def get_restaurant(id):
         r['_id'] = str(r['_id'])
         output = r
     else:
-        output = "No such name"
+        output = "No such restaurant"
     return jsonify(output)
 
 
-@app.route('/comments/<string:id>', methods=['GET'])
+@app.route('/restaurants/<string:id>/comments', methods=['GET'])
+def get_comments(id):
+    restaurant = mongo.db.restaurants
+    r = restaurant.find_one({'_id': ObjectId(id)})
+    output = []
+    if r:
+        for c_id in r['comments']:
+            c = get_comment(c_id).json
+            output.append(c)
+    else:
+        output = "No such restaurant"
+    return jsonify(output)
+
+
 def get_comment(id):
     comment = mongo.db.comments
     c = comment.find_one({'_id': ObjectId(id)})
@@ -48,7 +61,7 @@ def get_comment(id):
         c['_id'] = str(c['_id'])
         output = c
     else:
-        output = "No such name"
+        output = "No such comment"
     return jsonify(output)
 
 
@@ -72,8 +85,8 @@ def add_restaurant():
     return json.dumps(new_restaurant)
 
 
-@app.route('/comment', methods=['POST'])
-def add_comment():
+@app.route('/restaurants/<string:id>/comments', methods=['POST'])
+def add_comment(id):
     comment = mongo.db.comments
     author = request.json['author']
     quality = request.json['quality']
@@ -81,16 +94,15 @@ def add_comment():
     deliveryTime = request.json['deliveryTime']
     text = request.json['text']
     created_at = datetime.datetime.utcnow()
-    restaurantId = request.json['restaurantId']
     comment_id = comment.insert(
         {'author': author, 'quality': quality, 'packaging': packaging, 'deliveryTime': deliveryTime, 'text': text,
          'created_at': created_at})
     restaurant = mongo.db.restaurants
-    r = restaurant.find_one({'_id': ObjectId(restaurantId)})
+    r = restaurant.find_one({'_id': ObjectId(id)})
     new_rate = ((quality + packaging + deliveryTime) / 3 + len(r['comments']) * r['averageRate']) / (
             len(r['comments']) + 1)
-    restaurant.update({'_id': ObjectId(restaurantId)}, {'$set': {'averageRate': new_rate}})
-    restaurant.update({'_id': ObjectId(restaurantId)}, {'$push': {'comments': str(comment_id)}})
+    restaurant.update({'_id': ObjectId(id)}, {'$set': {'averageRate': new_rate}})
+    restaurant.update({'_id': ObjectId(id)}, {'$push': {'comments': str(comment_id)}})
     new_comment = comment.find_one({'_id': comment_id})
     new_comment['_id'] = str(new_comment['_id'])
     new_comment['created_at'] = str(new_comment['created_at'])
