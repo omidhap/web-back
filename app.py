@@ -1,4 +1,4 @@
-from flask import Flask, redirect
+from flask import Flask
 from flask import jsonify
 from flask import request
 from flask_pymongo import PyMongo
@@ -18,15 +18,6 @@ mongo.db.comments.drop()
 mongo.db.restaurants.drop()
 
 
-@app.route('/star', methods=['GET'])
-def get_all_stars():
-    star = mongo.db.stars
-    output = []
-    for s in star.find():
-        output.append({'name': s['name'], 'distance': s['distance']})
-    return jsonify({'result': output})
-
-
 @app.route('/restaurants', methods=['GET'])
 def get_all_restaurants():
     restaurant = mongo.db.restaurants
@@ -37,17 +28,6 @@ def get_all_restaurants():
     return jsonify(output)
 
 
-@app.route('/star/<string:name>', methods=['GET'])
-def get_one_star(name):
-    star = mongo.db.stars
-    s = star.find_one({'name': name})
-    if s:
-        output = {'name': s['name'], 'distance': s['distance']}
-    else:
-        output = "No such name"
-    return jsonify({'result': output})
-
-
 @app.route('/restaurants/<string:id>', methods=['GET'])
 def get_restaurant(id):
     restaurant = mongo.db.restaurants
@@ -55,6 +35,18 @@ def get_restaurant(id):
     if r:
         r['_id'] = str(r['_id'])
         output = r
+    else:
+        output = "No such name"
+    return jsonify(output)
+
+
+@app.route('/comments/<string:id>', methods=['GET'])
+def get_comment(id):
+    comment = mongo.db.comments
+    c = comment.find_one({'_id': ObjectId(id)})
+    if c:
+        c['_id'] = str(c['_id'])
+        output = c
     else:
         output = "No such name"
     return jsonify(output)
@@ -80,12 +72,6 @@ def add_restaurant():
     return json.dumps(new_restaurant)
 
 
-@app.route('/star', methods=['POST'])
-def add_star():
-    mongo.db.stars.insert(request.json)
-    return redirect('star/' + request.json['name'])
-
-
 @app.route('/comment', methods=['POST'])
 def add_comment():
     comment = mongo.db.comments
@@ -95,9 +81,16 @@ def add_comment():
     deliveryTime = request.json['deliveryTime']
     text = request.json['text']
     created_at = datetime.datetime.utcnow()
+    restaurantId = request.json['restaurantId']
     comment_id = comment.insert(
         {'author': author, 'quality': quality, 'packaging': packaging, 'deliveryTime': deliveryTime, 'text': text,
          'created_at': created_at})
+    restaurant = mongo.db.restaurants
+    r = restaurant.find_one({'_id': ObjectId(restaurantId)})
+    new_rate = ((quality + packaging + deliveryTime) / 3 + len(r['comments']) * r['averageRate']) / (
+            len(r['comments']) + 1)
+    restaurant.update({'_id': ObjectId(restaurantId)}, {'$set': {'averageRate': new_rate}})
+    restaurant.update({'_id': ObjectId(restaurantId)}, {'$push': {'comments': str(comment_id)}})
     new_comment = comment.find_one({'_id': comment_id})
     new_comment['_id'] = str(new_comment['_id'])
     new_comment['created_at'] = str(new_comment['created_at'])
